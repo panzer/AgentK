@@ -1,11 +1,10 @@
 from typing import Literal
-
 from langchain_core.messages import HumanMessage, SystemMessage
 from langgraph.graph import END, StateGraph, MessagesState
 from langgraph.prebuilt import ToolNode
-
 import config
 import utils
+from agents import BaseAgent
 
 example_agent = "web_researcher"
 
@@ -15,7 +14,10 @@ with open(f"agents/{example_agent}.py", 'r') as file:
 with open(f"tests/agents/test_{example_agent}.py", 'r') as file:
     agent_test_code = file.read()
 
-system_prompt = f"""You are agent_smith, a ReAct agent that develops other ReAct agents.
+
+class AgentSmith(BaseAgent):
+    def __init__(self):
+        system_prompt = f"""You are agent_smith, a ReAct agent that develops other ReAct agents.
 
 You are part of a system called AgentK - an autoagentic AGI.
 AgentK is a self-evolving AGI made of agents that collaborate, and build new agents as needed, in order to complete tasks for a user.
@@ -53,12 +55,12 @@ You MUST always run the smoke test and ensure it doesn't error before considerin
 Avoid creating agents that are simply proxies for invoking a function with no additional reasoning; this is usually a sign that the agent is too specific and should be more generalised.
 
 Example:
-agents/{example_agent}.py
+agents/web_researcher.py
 ```
 {agent_code}
 ```
 
-tests/agents/test_{example_agent}.py
+tests/agents/test_web_researcher.py
 ```
 {agent_test_code}
 ```
@@ -66,48 +68,28 @@ tests/agents/test_{example_agent}.py
 Here's a list of currently available agents:
 {utils.all_agents(exclude=["hermes", "agent_smith"])}
 """
-    
-tools = utils.all_tool_functions()
+        tools = utils.all_tool_functions()
+        super().__init__("agent_smith", tools, system_prompt)
 
-def reasoning(state: MessagesState):
-    print()
-    print("agent_smith is thinking...")
-    messages = state['messages']
-    tooled_up_model = config.default_langchain_model.bind_tools(tools)
-    response = tooled_up_model.invoke(messages)
-    return {"messages": [response]}
+    def reasoning(self, state: MessagesState):
+        self.print_with_color("is thinking...")
+        messages = state['messages']
+        tooled_up_model = config.default_langchain_model.bind_tools(self.tools)
+        response = tooled_up_model.invoke(messages)
+        return {"messages": [response]}
 
-def check_for_tool_calls(state: MessagesState) -> Literal["tools", END]:
-    messages = state['messages']
-    last_message = messages[-1]
-    
-    if last_message.tool_calls:
-        if not last_message.content.strip() == "":
-            print("agent_smith thought this:")
-            print(last_message.content)
-        print()
-        print("agent_smith is acting by invoking these tools:")
-        print([tool_call["name"] for tool_call in last_message.tool_calls])
-        return "tools"
-    
-    return END
+    def check_for_tool_calls(self, state: MessagesState) -> Literal["tools", END]:
+        messages = state['messages']
+        last_message = messages[-1]
+        
+        if last_message.tool_calls:
+            if not last_message.content.strip() == "":
+                self.print_with_color("thought this:")
+                self.print_with_color(last_message.content)
+            self.print_with_color("is acting by invoking these tools:")
+            self.print_with_color([tool_call["name"] for tool_call in last_message.tool_calls])
+            return "tools"
+        
+        return END
 
-acting = ToolNode(tools)
-
-workflow = StateGraph(MessagesState)
-workflow.add_node("reasoning", reasoning)
-workflow.add_node("tools", acting)
-workflow.set_entry_point("reasoning")
-workflow.add_conditional_edges(
-    "reasoning",
-    check_for_tool_calls,
-)
-workflow.add_edge("tools", 'reasoning')
-
-graph = workflow.compile()
-
-def agent_smith(task: str) -> str:
-    """Designs and implements new agents, each designed to play a unique role."""
-    return graph.invoke(
-        {"messages": [SystemMessage(system_prompt), HumanMessage(task)]}
-    )
+agent_smith = AgentSmith().invoke
