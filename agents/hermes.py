@@ -1,7 +1,6 @@
 from typing import Literal
 from langchain_core.messages import HumanMessage, SystemMessage
-from langgraph.graph import StateGraph, MessagesState, END
-from langgraph.prebuilt import ToolNode
+from langgraph.graph import MessagesState, START, END
 import utils
 import config
 from agents import BaseAgent
@@ -49,6 +48,7 @@ Here's a list of currently available agents:
         self.workflow.add_node("feedback_and_wait_on_human_input", self.feedback_and_wait_on_human_input)
         self.workflow.add_conditional_edges("feedback_and_wait_on_human_input", self.check_for_exit)
         self.workflow.set_entry_point("feedback_and_wait_on_human_input")
+        self.workflow.edges.remove((START, "reasoning"))
 
     def compile(self):
         return self.workflow.compile(checkpointer=utils.checkpointer)

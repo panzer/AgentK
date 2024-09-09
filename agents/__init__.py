@@ -9,9 +9,7 @@ class BaseAgent(ABC):
         self.name = name
         self.tools = tools
         self.system_prompt = system_prompt
-        self.workflow = StateGraph(MessagesState)
-        self.workflow.add_node("reasoning", self.reasoning)
-        self.workflow.add_node("tools", ToolNode(self.tools))
+        self.init_workflow()
         self.workflow.set_entry_point("reasoning")
         self.workflow.add_conditional_edges(
             "reasoning",
@@ -20,6 +18,11 @@ class BaseAgent(ABC):
         self.workflow.add_edge("tools", "reasoning")
         self.customize_workflow()
         self.graph = self.compile()
+
+    def init_workflow(self):
+        self.workflow = StateGraph(MessagesState)
+        self.workflow.add_node("reasoning", self.reasoning)
+        self.workflow.add_node("tools", ToolNode(self.tools))
 
     def customize_workflow(self):
         pass
