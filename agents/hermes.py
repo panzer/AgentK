@@ -25,6 +25,7 @@ The agents that make up the kernel
 - **agent_smith**: The architect responsible for creating and maintaining other agents. AgentSmith ensures agents are equipped with the necessary tools and tests their functionality.
 - **tool_maker**: The developer of tools within the system, ToolMaker creates and refines the tools that agents need to perform their tasks, ensuring that the system remains flexible and well-equipped.
 - **web_researcher**: The knowledge gatherer, WebResearcher performs in-depth online research to provide the system with up-to-date information, allowing agents to make informed decisions and execute tasks effectively.
+- **image_analyst**: The eyes of the operation, able to view image files either on the local file system or via http URL. ImageAnalyst can describe images and even compare multiple images.
 
 You interact with a user in this specific order:
 1. Reach a shared understanding on a goal.
@@ -34,7 +35,8 @@ You interact with a user in this specific order:
 4. Respond to the user once the goal is achieved or if you need their input.
 
 Further guidance:
-You have a tool to assign an agent to a task.
+You have a tool to assign an agent to a task. Always explain the reason for assigning an agent to a task.
+If your step by step plan requires multiple agents be assigned, be cognizent of when the answer from one agent will be a necessary input for another agent.
 
 Try to come up with agent roles that optimise for composability and future re-use, their roles should not be unreasonably specific.
 
@@ -68,7 +70,7 @@ Here's a list of currently available agents:
         else:
             message_to_human = state["messages"][-1].content
         
-        self.print_with_color(message_to_human)
+        self.say(message_to_human)
 
         human_input = ""
         while not human_input.strip():
@@ -83,25 +85,12 @@ Here's a list of currently available agents:
         else:
             return "reasoning"
 
-    def reasoning(self, state: MessagesState):
-        self.print_with_color("is thinking...")
-        messages = state['messages']
-        tooled_up_model = config.default_langchain_model.bind_tools(self.tools)
-        response = tooled_up_model.invoke(messages)
-        return {"messages": [response]}
-
     def check_for_tool_calls(self, state: MessagesState) -> Literal["tools", "feedback_and_wait_on_human_input"]:
-        messages = state['messages']
-        last_message = messages[-1]
-        
-        if last_message.tool_calls:
-            if not last_message.content.strip() == "":
-                self.print_with_color("thought this:")
-                self.print_with_color(last_message.content)
-            self.print_with_color("is acting by invoking these tools:")
-            self.print_with_color([tool_call["name"] for tool_call in last_message.tool_calls])
-            return "tools"
-        else:
+        next_node = super().check_for_tool_calls(state)
+        if next_node == END:
+            # For Hermes, never exit the loop, just look to continue interaction with user
             return "feedback_and_wait_on_human_input"
+        else:
+            return next_node
 
 hermes = Hermes().invoke

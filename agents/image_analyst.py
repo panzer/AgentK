@@ -1,6 +1,6 @@
-from typing import Literal, TypedDict
-from langchain_core.messages import AnyMessage, HumanMessage, ToolMessage, AIMessage, merge_content
-from langgraph.graph import END, StateGraph, MessagesState
+from typing import TypedDict
+from langchain_core.messages import AnyMessage, HumanMessage, merge_content
+from langgraph.graph import StateGraph
 import config
 from agents import BaseAgent
 
@@ -16,7 +16,6 @@ def load_image_from_filepath(filepath: str):
     path = pathlib.Path(filepath)
     base64_image = base64.b64encode(path.read_bytes()).decode('utf-8')
     extension = path.suffix.lstrip('.')
-    print("used the tool")
     return [
         # {"type": "text", "text": "Here is the image you requested. Now, complete the initial task."},
         {"type": "image_url", "image_url": {"url": f"data:image/{extension};base64,{base64_image}", "detail": "low"}}
@@ -55,14 +54,16 @@ class ImageAnalyst(BaseAgent):
         self.workflow.add_node("tools", self.tool_node)
         
     def tool_node(self, state: ImageAnalystState):
-        print("tool node")
         image_content = []
-        for tool_call in state["messages"][-1].tool_calls:
+        last_message = state["messages"][-1]
+        if not last_message.content.strip() == "":
+            self.think(last_message.content)
+        for tool_call in last_message.tool_calls:
+            self.announce_tool_call(tool_call)
             tool = self.tools_by_name[tool_call["name"]]
             observation = tool.invoke(tool_call["args"])
             # state_update.update(observation)
             image_content.extend(observation)
-        print("state update")
         def first_text(content: str | list[str | dict]) -> str:
             if type(content) is str:
                 return content
@@ -88,7 +89,7 @@ class ImageAnalyst(BaseAgent):
         }
 
     def reasoning(self, state: ImageAnalystState):
-        self.print_with_color("is thinking...")
+        self.say("is thinking...")
         messages = state['messages']
         print(f"{state.get('used_tools')=}")
         print([f"{m.__class__.__name__}: {m.content}" for m in messages])
@@ -99,19 +100,5 @@ class ImageAnalyst(BaseAgent):
 
         response = tooled_up_model.invoke(messages)
         return {"messages": messages + [response]}  # because we are not using MessagesState, manually append messages when desired
-
-    def check_for_tool_calls(self, state: MessagesState) -> Literal["tools", END]:
-        messages = state['messages']
-        last_message = messages[-1]
-        
-        if last_message.tool_calls:
-            if not last_message.content.strip() == "":
-                self.print_with_color("thought this:")
-                self.print_with_color(last_message.content)
-            self.print_with_color("is acting by invoking these tools:")
-            self.print_with_color([tool_call["name"] for tool_call in last_message.tool_calls])
-            return "tools"
-        
-        return END
 
 image_analyst = ImageAnalyst().invoke

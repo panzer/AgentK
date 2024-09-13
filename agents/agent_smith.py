@@ -1,8 +1,3 @@
-from typing import Literal
-from langchain_core.messages import HumanMessage, SystemMessage
-from langgraph.graph import END, StateGraph, MessagesState
-from langgraph.prebuilt import ToolNode
-import config
 import utils
 from agents import BaseAgent
 
@@ -65,31 +60,12 @@ tests/agents/test_web_researcher.py
 {agent_test_code}
 ```
 
+Need to see the definition of some import within a file, like the BaseAgent definition? Tools can help you see those file contents.
+
 Here's a list of currently available agents:
 {utils.all_agents(exclude=["hermes", "agent_smith"])}
 """
         tools = utils.all_tool_functions()
         super().__init__("agent_smith", tools, system_prompt)
-
-    def reasoning(self, state: MessagesState):
-        self.print_with_color("is thinking...")
-        messages = state['messages']
-        tooled_up_model = config.default_langchain_model.bind_tools(self.tools)
-        response = tooled_up_model.invoke(messages)
-        return {"messages": [response]}
-
-    def check_for_tool_calls(self, state: MessagesState) -> Literal["tools", END]:
-        messages = state['messages']
-        last_message = messages[-1]
-        
-        if last_message.tool_calls:
-            if not last_message.content.strip() == "":
-                self.print_with_color("thought this:")
-                self.print_with_color(last_message.content)
-            self.print_with_color("is acting by invoking these tools:")
-            self.print_with_color([tool_call["name"] for tool_call in last_message.tool_calls])
-            return "tools"
-        
-        return END
 
 agent_smith = AgentSmith().invoke
