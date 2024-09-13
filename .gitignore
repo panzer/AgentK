@@ -5,3 +5,5 @@ tmp
 _scratch.py
 
 venv/
+
+.DS_Store
