@@ -1,4 +1,5 @@
 from typing import TypedDict
+from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AnyMessage, HumanMessage, merge_content
 from langgraph.graph import StateGraph
 import config
@@ -17,7 +18,6 @@ def load_image_from_filepath(filepath: str):
     base64_image = base64.b64encode(path.read_bytes()).decode('utf-8')
     extension = path.suffix.lstrip('.')
     return [
-        # {"type": "text", "text": "Here is the image you requested. Now, complete the initial task."},
         {"type": "image_url", "image_url": {"url": f"data:image/{extension};base64,{base64_image}", "detail": "low"}}
     ]
 
@@ -27,7 +27,6 @@ def load_image_from_url(url: str):
     response = httpx.get(url)
     if response.is_success:
         return [
-            # {"type": "text", "text": "Here is the image you requested. Now, complete the initial task."},
             {"type": "image_url", "image_url": {"url": url, "detail": "low"}}
         ]
     else:
@@ -47,6 +46,10 @@ class ImageAnalyst(BaseAgent):
         tools = [load_image_from_filepath, load_image_from_url]
         self.tools_by_name = {tool.name: tool for tool in tools}
         super().__init__("image_analyst", tools, system_prompt)
+
+    @property
+    def gpt_model(self) -> BaseChatModel:
+        return config.smallest_langchain_model
 
     def init_workflow(self):
         self.workflow = StateGraph(ImageAnalystState)

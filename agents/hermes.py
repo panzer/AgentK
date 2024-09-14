@@ -6,6 +6,7 @@ import config
 from agents import BaseAgent
 from tools.assign_agent_to_task import assign_agent_to_task
 from tools.list_available_agents import list_available_agents
+from tools.run_shell_command import run_shell_command
 
 class Hermes(BaseAgent):
     def __init__(self):
@@ -43,8 +44,12 @@ Try to come up with agent roles that optimise for composability and future re-us
 Here's a list of currently available agents:
 {utils.all_agents()}
 """
-        tools = [list_available_agents, assign_agent_to_task]
+        tools = [list_available_agents, assign_agent_to_task, run_shell_command]
         super().__init__("hermes", tools, system_prompt)
+
+    @property
+    def gpt_model(self):
+        return config.largest_langchain_model
 
     def customize_workflow(self):
         self.workflow.add_node("feedback_and_wait_on_human_input", self.feedback_and_wait_on_human_input)

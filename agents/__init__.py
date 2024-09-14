@@ -1,9 +1,11 @@
 from abc import ABC
 from typing import Literal
+from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage, ToolCall
 from langgraph.graph import END, StateGraph, MessagesState
 from langgraph.prebuilt import ToolNode
 import config
+from utils import color, italicize
 
 class BaseAgent(ABC):
     def __init__(self, name: str, tools: list, system_prompt: str):
@@ -30,10 +32,14 @@ class BaseAgent(ABC):
 
     def compile(self):
         return self.workflow.compile()
+    
+    @property
+    def gpt_model(self) -> BaseChatModel:
+        return config.default_langchain_model
 
     def reasoning(self, state: MessagesState):
         messages = state['messages']
-        tooled_up_model = config.default_langchain_model.bind_tools(self.tools)
+        tooled_up_model = self.gpt_model.bind_tools(self.tools)
         response = tooled_up_model.invoke(messages)
         return {"messages": [response]}
 
@@ -56,12 +62,14 @@ class BaseAgent(ABC):
         )
 
     def say(self, message: str):
-        print(f"\033[94m{self.name}\033[0m: {message}")
+        print(f"{color(self.name, 'blue')}: {message}")
 
     def think(self, thought: str):
-        print(f"\033[94m{self.name}\033[0m: \033[90m\033[3m{thought}\033[0m")
+        self.say(italicize(color(thought, 'grey')))
 
     def announce_tool_call(self, tool_call: ToolCall):
         tool_name = tool_call["name"]
         tool_args = tool_call["args"]
-        self.say(f"\033[94mUsing tool \033[92m{tool_name}\033[0m {tool_args}\033[0m")
+        MAX_LEN = 20
+        pretty_args = {k: (v[:MAX_LEN] + '...' if len(v) > MAX_LEN else v) for k, v in tool_args.items()}
+        self.say(f"{italicize(color('Using tool', 'grey'))} {color(tool_name, 'green')} {italicize(color(pretty_args, 'grey'))}")
