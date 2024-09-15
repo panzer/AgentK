@@ -1,13 +1,9 @@
-from typing import Literal
-
-from langchain_core.messages import HumanMessage, SystemMessage
-from langgraph.graph import END, StateGraph, MessagesState
-from langgraph.prebuilt import ToolNode
-
 import utils
-import config
+from agents import BaseAgent
 
-system_prompt = """You are tool_maker, a ReAct agent that develops LangChain tools for other agents.
+class ToolMaker(BaseAgent):
+    def __init__(self):
+        system_prompt = """You are tool_maker, a ReAct agent that develops LangChain tools for other agents.
 
 You are part of a system called AgentK - an autoagentic AGI.
 AgentK is a self-evolving AGI made of agents that collaborate, and build new agents as needed, in order to complete tasks for a user.
@@ -96,48 +92,7 @@ if __name__ == '__main__':
     unittest.main()
 ```
 """
-    
-tools = utils.all_tool_functions()
+        tools = utils.all_tool_functions()
+        super().__init__("tool_maker", tools, system_prompt)
 
-def reasoning(state: MessagesState):
-    print()
-    print("tool_maker is thinking...")
-    messages = state['messages']
-    tooled_up_model = config.default_langchain_model.bind_tools(tools)
-    response = tooled_up_model.invoke(messages)
-    return {"messages": [response]}
-
-def check_for_tool_calls(state: MessagesState) -> Literal["tools", END]:
-    messages = state['messages']
-    last_message = messages[-1]
-    
-    if last_message.tool_calls:
-        if not last_message.content.strip() == "":
-            print("tool_maker thought this:")
-            print(last_message.content)
-        print()
-        print("tool_maker is acting by invoking these tools:")
-        print([tool_call["name"] for tool_call in last_message.tool_calls])
-        return "tools"
-    
-    return END
-
-acting = ToolNode(tools)
-
-workflow = StateGraph(MessagesState)
-workflow.add_node("reasoning", reasoning)
-workflow.add_node("tools", acting)
-workflow.set_entry_point("reasoning")
-workflow.add_conditional_edges(
-    "reasoning",
-    check_for_tool_calls,
-)
-workflow.add_edge("tools", 'reasoning')
-graph = workflow.compile()
-
-
-def tool_maker(task: str) -> str:
-    """Creates new tools for agents to use."""
-    return graph.invoke(
-        {"messages": [SystemMessage(system_prompt), HumanMessage(task)]}
-    )
+tool_maker = ToolMaker().invoke

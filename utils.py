@@ -4,6 +4,7 @@ import sys
 import string
 import secrets
 import traceback
+from typing import Literal
 
 from langgraph.checkpoint.sqlite import SqliteSaver
 
@@ -128,3 +129,16 @@ def load_module(source, module_name=None):
     spec.loader.exec_module(module)
 
     return module
+
+Color = Literal['blue', 'grey', 'green']
+
+def color(text: str, color: Color) -> str:
+    colors: dict[Color, str] = {
+        'blue': '\033[94m',
+        'grey': '\033[90m',
+        'green': '\033[92m'
+    }
+    return f"{colors[color]}{text}\033[0m"
+
+def italicize(text: str) -> str:
+    return f"\033[3m{text}\033[0m"

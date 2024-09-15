@@ -1,0 +1,10 @@
+# Python environment
+venv
+__pycache__
+
+# System files
+.DS_Store
+.git
+
+# Project files
+checkpoints.sqlite
