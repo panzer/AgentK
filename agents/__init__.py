@@ -6,12 +6,14 @@ from langgraph.graph import END, StateGraph, MessagesState
 from langgraph.prebuilt import ToolNode
 import config
 from utils import color, italicize
+from view.io_base import AbstractBaseAgentIO
 
 class BaseAgent(ABC):
-    def __init__(self, name: str, tools: list, system_prompt: str):
+    def __init__(self, name: str, tools: list, system_prompt: str, io: AbstractBaseAgentIO):
         self.name = name
         self.tools = tools
         self.system_prompt = system_prompt
+        self.io = io
         self.init_workflow()
         self.workflow.set_entry_point("reasoning")
         self.workflow.add_conditional_edges(
@@ -62,14 +64,23 @@ class BaseAgent(ABC):
         )
 
     def say(self, message: str):
-        print(f"{color(self.name, 'blue')}: {message}")
+        self.io.agent_says(message)
+        # print(f"{color(self.name, 'blue')}: {message}")
 
     def think(self, thought: str):
-        self.say(italicize(color(thought, 'grey')))
+        self.io.agent_thinks(thought)
+        # self.say(italicize(color(thought, 'grey')))
 
     def announce_tool_call(self, tool_call: ToolCall):
         tool_name = tool_call["name"]
         tool_args = tool_call["args"]
         MAX_LEN = 20
-        pretty_args = {k: (v[:MAX_LEN] + '...' if len(v) > MAX_LEN else v) for k, v in tool_args.items()}
-        self.say(f"{italicize(color('Using tool', 'grey'))} {color(tool_name, 'green')} {italicize(color(pretty_args, 'grey'))}")
+        def abbr_value(v) -> str:
+            full_str = str(v)
+            if len(full_str) > MAX_LEN:
+                return full_str[:MAX_LEN] + '...'
+            else:
+                return v
+        pretty_args = {k: abbr_value(v) for k, v in tool_args.items()}
+        self.io.agent_uses_tool(tool_name, pretty_args)
+        # self.say(f"{italicize(color('Using tool', 'grey'))} {color(tool_name, 'green')} {italicize(color(pretty_args, 'grey'))}")

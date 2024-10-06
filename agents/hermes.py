@@ -4,12 +4,15 @@ from langgraph.graph import MessagesState, START, END
 import utils
 import config
 from agents import BaseAgent
-from tools.assign_agent_to_task import assign_agent_to_task
+# from tools.assign_agent_to_task import assign_agent_to_task
 from tools.list_available_agents import list_available_agents
 from tools.run_shell_command import run_shell_command
+from langchain.tools.base import StructuredTool
+from view.io_base import AbstractBaseAgentIO
+
 
 class Hermes(BaseAgent):
-    def __init__(self):
+    def __init__(self, io: AbstractBaseAgentIO):
         system_prompt = f"""You are Hermes, a ReAct agent that achieves goals for the user.
 
 You are part of a system called AgentK - an autoagentic AGI.
@@ -44,12 +47,23 @@ Try to come up with agent roles that optimise for composability and future re-us
 Here's a list of currently available agents:
 {utils.all_agents()}
 """
-        tools = [list_available_agents, assign_agent_to_task, run_shell_command]
-        super().__init__("hermes", tools, system_prompt)
+
+        tool = StructuredTool.from_function(self.assign_agent_to_task)
+        tools = [
+            list_available_agents,
+            tool,
+            # update_wrapper(assign_agent_partial, self.assign_agent_to_task),
+            run_shell_command
+        ]
+        super().__init__("hermes", tools, system_prompt, io)
 
     @property
     def gpt_model(self):
         return config.largest_langchain_model
+
+    def assign_agent_to_task(self, agent_name: str, task: str):
+        """Assign an agent to a task. This function returns the response from the agent."""
+        self.say(f"Yay! {agent_name}")
 
     def customize_workflow(self):
         self.workflow.add_node("feedback_and_wait_on_human_input", self.feedback_and_wait_on_human_input)
