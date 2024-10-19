@@ -52,7 +52,6 @@ Here's a list of currently available agents:
         tools = [
             list_available_agents,
             tool,
-            # update_wrapper(assign_agent_partial, self.assign_agent_to_task),
             run_shell_command
         ]
         super().__init__("hermes", tools, system_prompt, io)
@@ -60,10 +59,6 @@ Here's a list of currently available agents:
     @property
     def gpt_model(self):
         return config.largest_langchain_model
-
-    def assign_agent_to_task(self, agent_name: str, task: str):
-        """Assign an agent to a task. This function returns the response from the agent."""
-        self.say(f"Yay! {agent_name}")
 
     def customize_workflow(self):
         self.workflow.add_node("feedback_and_wait_on_human_input", self.feedback_and_wait_on_human_input)
@@ -93,7 +88,7 @@ Here's a list of currently available agents:
 
         human_input = ""
         while not human_input.strip():
-            human_input = input("> ")
+            human_input = self.io.agent_requires_text_input("> ")
         
         return {"messages": [HumanMessage(human_input)]}
 

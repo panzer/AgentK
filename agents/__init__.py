@@ -1,11 +1,14 @@
 from abc import ABC
+import traceback
 from typing import Literal
+import sys
+
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage, ToolCall
 from langgraph.graph import END, StateGraph, MessagesState
 from langgraph.prebuilt import ToolNode
 import config
-from utils import color, italicize
+import utils
 from view.io_base import AbstractBaseAgentIO
 
 class BaseAgent(ABC):
@@ -84,3 +87,18 @@ class BaseAgent(ABC):
         pretty_args = {k: abbr_value(v) for k, v in tool_args.items()}
         self.io.agent_uses_tool(tool_name, pretty_args)
         # self.say(f"{italicize(color('Using tool', 'grey'))} {color(tool_name, 'green')} {italicize(color(pretty_args, 'grey'))}")
+
+    def assign_agent_to_task(self, agent_name: str, task: str) -> str:
+        try:
+            agent_module = utils.load_module(f"agents/{agent_name}.py")
+            agent_function = getattr(agent_module, agent_name)
+            result = agent_function(task=task)
+            del sys.modules[agent_module.__name__]  # unload module so updates can be reflected for next run
+            response = result["messages"][-1].content
+            self.io.reasoning(f"{agent_name} responded {response}")
+            return response
+        except Exception as e:
+            exception_trace = traceback.format_exc()
+            error = f"An error occurred while assigning {agent_name} to task {task}:\n {e}\n{exception_trace}"
+            self.io.agent_errored(error)
+            return error
